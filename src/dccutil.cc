@@ -1047,13 +1047,11 @@ identd_open(const char *sourceIp, const char *destIp, int identd)
     simple_snprintf(oidentd_conf, sizeof(oidentd_conf), "%s/.oidentd.conf", conf.homedir);
 
     sdprintf("Attempting to spoof ident with oidentd (%s)", oidentd_conf);
-    FILE *f = NULL;
+    FILE *f = fopen(oidentd_conf, "a+");
 
-    /* Wait for any locks to finish up */
-    while ((f = fopen(oidentd_conf, "a+")) == NULL)
-      ;
-
-    if (f) {
+    if (!f)
+      putlog(LOG_MISC, "*", "Failed to open %s: %s", oidentd_conf, strerror(errno));
+    else {
 #ifdef LOCK_EX
       flock(fileno(f), LOCK_EX);
 #endif
