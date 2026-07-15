@@ -223,6 +223,12 @@ int timer_get_shortest(egg_timeval_t *howlong)
 {
 	egg_timer_t *timer = timer_repeat_head;
 
+	if (!timer || (timer_once_head &&
+	    (timer_once_head->trigger_time.sec < timer->trigger_time.sec ||
+	    (timer_once_head->trigger_time.sec == timer->trigger_time.sec &&
+	    timer_once_head->trigger_time.usec < timer->trigger_time.usec))))
+		timer = timer_once_head;
+
 	/* No timers? Boo. */
 	if (!timer) return(1);
 
