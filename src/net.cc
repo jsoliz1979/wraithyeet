@@ -73,6 +73,7 @@ char	botuser[21] = ""; 	/* Username of the user running the bot    */
 int	socks_total = 0;	/* total number of sockets */
 sock_list *socklist = NULL;	/* Enough to be safe			    */
 int	MAXSOCKS = 0;
+static int socklist_highest = 0;
 static int outbuf_sockets = 0;
 jmp_buf	alarmret;		/* Env buffer for alarm() returns	    */
 
@@ -150,6 +151,7 @@ void init_net()
   else
     socklist = (sock_list *) calloc(1, sizeof(sock_list) * MAXSOCKS);
 
+  socklist_highest = 0;
   for (int i = 0; i < MAXSOCKS; i++) {
     bzero(&socklist[i], sizeof(socklist[i]));
     socklist[i].flags = SOCK_UNUSED;
@@ -340,6 +342,8 @@ int allocsock(int sock, int options)
       bzero(&(socklist[i].okey), ENC_KEY_LEN + 1);
       bzero(&(socklist[i].ikey), ENC_KEY_LEN + 1);
       socks_total++;
+      if (i >= socklist_highest)
+        socklist_highest = i + 1;
       sdprintf("allocsock(%d) = %d", i, sock);
       return i;
     }
@@ -427,6 +431,10 @@ void real_killsock(int sock, const char *file, int line)
     bzero(&socklist[i], sizeof(socklist[i]));
     socklist[i].flags = SOCK_UNUSED;
     socks_total--;
+    if (i == socklist_highest - 1)
+      while (socklist_highest &&
+          (socklist[socklist_highest - 1].flags & SOCK_UNUSED))
+        --socklist_highest;
     sdprintf("killsock(%d, %s, %d) (socklist: %d)", sock, file, line, i);
     return;
   }
@@ -1031,7 +1039,7 @@ static int sockread(char *s, int *len)
 
   FD_ZERO(&fd);
   
-  for (i = 0; i < MAXSOCKS; i++) {
+  for (i = 0; i < socklist_highest; i++) {
     if (!(socklist[i].flags & (SOCK_UNUSED | SOCK_VIRTUAL))) {
       if (unlikely((socklist[i].sock == STDOUT) && !backgrd))
 	fdtmp = STDIN;
@@ -1050,7 +1058,7 @@ static int sockread(char *s, int *len)
 
   if (x > 0) {
     /* Something happened */
-    for (i = 0; i < MAXSOCKS; i++) {
+    for (i = 0; i < socklist_highest; i++) {
       if ((!(socklist[i].flags & SOCK_UNUSED)) && ((FD_ISSET(socklist[i].sock, &fd)) ||
 #ifdef EGG_SSL_EXT
             ((socklist[i].ssl) && (SSL_pending(socklist[i].ssl))) ||
@@ -1186,7 +1194,7 @@ int sockgets(char *s, int *len)
   size_t newline_index = size_t(-1);
   bool was_crlf = 0;
 
-  for (int i = 0; i < MAXSOCKS; i++) {
+  for (int i = 0; i < socklist_highest; i++) {
     /* Check for stored-up data waiting to be processed */
     if (!(socklist[i].flags & SOCK_UNUSED) && !(socklist[i].flags & SOCK_BUFFER) && (socklist[i].inbuf != NULL)) {
       if (!(socklist[i].flags & SOCK_BINARY)) {
@@ -1450,7 +1458,7 @@ int findanysnum(int sock)
   int i = 0;
 
   if (sock != -1)
-    for (i = 0; i < MAXSOCKS; i++)
+    for (i = 0; i < socklist_highest; i++)
       if ((socklist[i].sock == sock) && !(socklist[i].flags & SOCK_UNUSED))
         return i;
 
@@ -1484,7 +1492,7 @@ void dequeue_sockets()
   FD_ZERO(&wfds);
   tv.tv_sec = 0;
   tv.tv_usec = 0; 		/* we only want to see if it's ready for writing, no need to actually wait.. */
-  for (i = 0; i < MAXSOCKS; i++) { 
+  for (i = 0; i < socklist_highest; i++) {
     if (!(socklist[i].flags & SOCK_UNUSED) && socklist[i].outbuf != NULL) {
       FD_SET(socklist[i].sock, &wfds);
       if (socklist[i].sock > fds)
@@ -1499,7 +1507,7 @@ void dequeue_sockets()
 
 /* end poptix */
 
-  for (i = 0; i < MAXSOCKS; i++) { 
+  for (i = 0; i < socklist_highest; i++) {
     if (!(socklist[i].flags & SOCK_UNUSED) &&
 	(socklist[i].outbuf != NULL) && (FD_ISSET(socklist[i].sock, &wfds))) {
       /* Trick tputs into doing the work */
@@ -1578,7 +1586,7 @@ void tell_netdebug(int idx)
   char s[80] = "";
 
   dprintf(idx, "Open sockets:");
-  for (int i = 0; i < MAXSOCKS; i++) {
+  for (int i = 0; i < socklist_highest; i++) {
     if (!(socklist[i].flags & SOCK_UNUSED)) {
       simple_snprintf(s, sizeof(s), " %d", socklist[i].sock);
       if (socklist[i].flags & SOCK_BINARY)
@@ -1695,7 +1703,7 @@ bool socket_run() {
     }
   } else if (unlikely(xx == -2 && errno != EINTR)) {	/* select() error */
     putlog(LOG_MISC, "*", STR("* Socket error #%d; recovering."), errno);
-    for (i = 0; i < MAXSOCKS; i++) {
+    for (i = 0; i < socklist_highest; i++) {
       if (socklist[i].flags & (SOCK_UNUSED | SOCK_VIRTUAL))
         continue;
       if (fcntl(socklist[i].sock, F_GETFD, 0) != -1 || errno != EBADF)
