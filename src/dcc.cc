@@ -649,11 +649,9 @@ dcc_identd_connect(int idx, char *buf, int atr)
   }
   sock = answer(dcc[idx].sock, s, &ip, &port, 0);
 
-  while ((sock == -1) && (errno == EAGAIN))
-    sock = answer(sock, s, &ip, &port, 0);
-
   if (sock < 0) {
-    putlog(LOG_MISC, "*", "Failed TELNET incoming (%s)", strerror(errno));
+    if (errno != EAGAIN && errno != EWOULDBLOCK)
+      putlog(LOG_MISC, "*", "Failed TELNET incoming (%s)", strerror(errno));
     return;
   }
   /* changeover_dcc(idx, &DCC_IDENTD, 0); */
@@ -1429,10 +1427,9 @@ dcc_telnet(int idx, char *buf, int ii)
 
   int sock = answer(dcc[idx].sock, s, &ip, &port, 0);
 
-  while ((sock == -1) && (errno == EAGAIN))
-    sock = answer(dcc[idx].sock, s, &ip, &port, 0);
   if (unlikely(sock < 0)) {
-    putlog(LOG_MISC, "*", "Failed TELNET incoming (%s)", strerror(errno));
+    if (errno != EAGAIN && errno != EWOULDBLOCK)
+      putlog(LOG_MISC, "*", "Failed TELNET incoming (%s)", strerror(errno));
 //    killsock(dcc[idx].sock);
     return;
   }

@@ -864,6 +864,17 @@ const char *iptostr(in_addr_t ip)
  * by open_listen ... returns hostname of the caller & the new socket
  * does NOT dispose of old "public" socket!
  */
+static int accept_retry(int sock, struct sockaddr *addr, socklen_t *addrlen)
+{
+  int accepted;
+
+  do {
+    accepted = accept(sock, addr, addrlen);
+  } while (accepted < 0 && errno == EINTR);
+
+  return accepted;
+}
+
 int answer(int sock, char *caller, in_addr_t *ip, in_port_t *port, int binary)
 {
   int new_sock;
@@ -876,11 +887,11 @@ int answer(int sock, char *caller, in_addr_t *ip, in_port_t *port, int binary)
   bzero(&from6, sizeof(struct sockaddr_in6));
   if (af_ty == AF_INET6) {
     addrlen = sizeof(from6);
-    new_sock = accept(sock, (struct sockaddr *) &from6, &addrlen);
+    new_sock = accept_retry(sock, (struct sockaddr *) &from6, &addrlen);
   } else {
 #endif /* USE_IPV6 */
     addrlen = sizeof(struct sockaddr);
-    new_sock = accept(sock, (struct sockaddr *) &from, &addrlen);
+    new_sock = accept_retry(sock, (struct sockaddr *) &from, &addrlen);
 #ifdef USE_IPV6
   }
 #endif /* USE_IPV6 */
