@@ -1688,15 +1688,25 @@ bool socket_run() {
     }
   } else if (unlikely(xx == -2 && errno != EINTR)) {	/* select() error */
     putlog(LOG_MISC, "*", STR("* Socket error #%d; recovering."), errno);
-    for (i = 0; i < dcc_total; i++) {
-      if (dcc[i].type && dcc[i].sock != -1 && (fcntl(dcc[i].sock, F_GETFD, 0) == -1) && (errno == EBADF)) {
+    for (i = 0; i < MAXSOCKS; i++) {
+      if (socklist[i].flags & (SOCK_UNUSED | SOCK_VIRTUAL))
+        continue;
+      if (fcntl(socklist[i].sock, F_GETFD, 0) != -1 || errno != EBADF)
+        continue;
+
+      int badsock = socklist[i].sock;
+      idx = findanyidx(badsock);
+      if (idx != -1) {
         putlog(LOG_MISC, "*",
             STR("DCC socket %d (type %s, name '%s') expired -- pfft"),
-            dcc[i].sock, dcc[i].type->name, dcc[i].nick);
-        killsock(dcc[i].sock);
-        lostdcc(i);
-        i--;
+            badsock, dcc[idx].type->name, dcc[idx].nick);
+      } else {
+        putlog(LOG_MISC, "*", STR("Socket %d expired -- pfft"), badsock);
       }
+
+      killsock(badsock);
+      if (idx != -1)
+        lostdcc(idx);
     }
   } else if (xx == -3) {                      /* Idle */
     socket_cleanup = 0;	/* If we've been idle, cleanup & flush */
