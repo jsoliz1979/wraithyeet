@@ -843,7 +843,8 @@ void channels_init()
     timer_create_secs(30, "check_should_backup", (Function) check_should_backup);
 #endif /* G_BACKUP */
   }
-  timer_create_secs(10, "channels_timers", (Function) channels_timers);
+  if (!conf.bot->hub)
+    timer_create_secs(10, "channels_timers", (Function) channels_timers);
 
   add_builtins("dcc", C_dcc_channels);
   add_builtins("bot", channels_bot);
