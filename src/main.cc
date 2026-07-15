@@ -480,29 +480,6 @@ static void dtx_arg(int& argc, char *argv[])
 static int		lastmin = 99;
 static struct tm	nowtm;
 
-void core_10secondly()
-{
-  static int curcheck = 0;
-
-  ++curcheck;
-
-  //FIXME: This is disabled because it sucks.
-  if (curcheck == 1)
-    check_trace(0);
-
-  if (conf.bot->hub || conf.bot->localhub) {
-    if (tands > 0) {
-      check_promisc();
-
-      if (curcheck == 2)
-        check_last();
-    }
-
-    if (curcheck == 3)
-      curcheck = 0;
-  }
-}
-
 /* Traffic stats
  */
 egg_traffic_t traffic;
@@ -887,7 +864,6 @@ int main(int argc, char **argv)
   autolink_cycle();		/* Hurry and connect to tandem bots */
   timer_create_secs(1, STR("core_secondly"), (Function) core_secondly);
   timer_create_secs(10, STR("check_expired_dcc"), (Function) check_expired_dcc);
-  timer_create_secs(10, STR("core_10secondly"), (Function) core_10secondly);
   timer_create_secs(30, STR("expire_simuls"), (Function) expire_simuls);
   timer_create_secs(60, STR("core_minutely"), (Function) core_minutely);
   timer_create_secs(60, STR("check_botnet_pings"), (Function) check_botnet_pings);
