@@ -1689,7 +1689,7 @@ bool socket_run() {
   } else if (unlikely(xx == -2 && errno != EINTR)) {	/* select() error */
     putlog(LOG_MISC, "*", STR("* Socket error #%d; recovering."), errno);
     for (i = 0; i < dcc_total; i++) {
-      if (dcc[i].type && dcc[i].sock != -1 && (fcntl(dcc[i].sock, F_GETFD, 0) == -1) && (errno = EBADF)) {
+      if (dcc[i].type && dcc[i].sock != -1 && (fcntl(dcc[i].sock, F_GETFD, 0) == -1) && (errno == EBADF)) {
         putlog(LOG_MISC, "*",
             STR("DCC socket %d (type %s, name '%s') expired -- pfft"),
             dcc[i].sock, dcc[i].type->name, dcc[i].nick);
