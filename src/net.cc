@@ -73,6 +73,7 @@ char	botuser[21] = ""; 	/* Username of the user running the bot    */
 int	socks_total = 0;	/* total number of sockets */
 sock_list *socklist = NULL;	/* Enough to be safe			    */
 int	MAXSOCKS = 0;
+static int outbuf_sockets = 0;
 jmp_buf	alarmret;		/* Env buffer for alarm() returns	    */
 
 /* This *MUST* be an ip */
@@ -419,6 +420,7 @@ void real_killsock(int sock, const char *file, int line)
     if (socklist[i].outbuf != NULL) {
       delete socklist[i].outbuf;
       socklist[i].outbuf = NULL;
+      --outbuf_sockets;
     }
     if (socklist[i].host)
       free(socklist[i].host);
@@ -1415,6 +1417,7 @@ void tputs(int z, const char *s, size_t len)
     if ((size_t) x < len) {
       /* Socket is full, queue it */
       socklist[i].outbuf = new bd::String(&s[x], len - x);
+      ++outbuf_sockets;
     }
     //      if (socklist[i].encstatus && s)
     //        free(s);
@@ -1473,6 +1476,9 @@ void dequeue_sockets()
   int i, x, z = 0, fds = 0;
   fd_set wfds;
   struct timeval tv;
+
+  if (!outbuf_sockets)
+    return;
 
 /* ^-- start poptix test code, this should avoid writes to sockets not ready to be written to. */
   FD_ZERO(&wfds);
@@ -1543,6 +1549,7 @@ void dequeue_sockets()
 	/* If the whole buffer was sent, nuke it */
 	delete socklist[i].outbuf;
 	socklist[i].outbuf = NULL;
+	--outbuf_sockets;
       } else if (x > 0) {
         *(socklist[i].outbuf) += static_cast<size_t>(x);
       } else {
