@@ -89,8 +89,20 @@ int init_openssl() {
     return 1;
   }
 
-  // Disable insecure SSLv2
-  SSL_CTX_set_options(ssl_ctx, SSL_OP_NO_SSLv2|SSL_OP_SINGLE_DH_USE);
+  long ssl_options = SSL_OP_NO_SSLv2 | SSL_OP_SINGLE_DH_USE;
+#ifdef SSL_OP_NO_SSLv3
+  ssl_options |= SSL_OP_NO_SSLv3;
+#endif
+#ifdef SSL_OP_NO_TLSv1
+  ssl_options |= SSL_OP_NO_TLSv1;
+#endif
+#ifdef SSL_OP_NO_TLSv1_1
+  ssl_options |= SSL_OP_NO_TLSv1_1;
+#endif
+#ifdef SSL_OP_NO_COMPRESSION
+  ssl_options |= SSL_OP_NO_COMPRESSION;
+#endif
+  SSL_CTX_set_options(ssl_ctx, ssl_options);
   SSL_CTX_set_mode(ssl_ctx, SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER|SSL_MODE_ENABLE_PARTIAL_WRITE);
   SSL_CTX_set_tmp_dh_callback(ssl_ctx, tmp_dh_callback);
 
