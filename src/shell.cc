@@ -376,9 +376,13 @@ void check_trace(int start)
         return;
       case 0:		//child
         char buf[1];
+        ssize_t nread;
 
-        while (read(filedes[0], buf, sizeof(buf)) != 1)
-          ;
+        do {
+          nread = read(filedes[0], buf, sizeof(buf));
+        } while (nread == -1 && errno == EINTR);
+        if (nread != 1)
+          _exit(1);
 
         i = ptrace(PT_ATTACH, parent, 0, 0);
         if (i == -1 &&
