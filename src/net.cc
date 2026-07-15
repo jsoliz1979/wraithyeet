@@ -572,7 +572,12 @@ int open_telnet_raw(int sock, const char *ipIn, in_port_t sport, bool proxy_on, 
     socklen = SIZEOF_SOCKADDR(so);
   } else { // Unix domain socket
     so.sock_un.sun_family = AF_UNIX;
-    strcpy(so.sock_un.sun_path, ip);
+    if (strlen(ip) >= sizeof(so.sock_un.sun_path)) {
+      putlog(LOG_DEBUG, "*", "Unix socket path is too long: %s", ip);
+      killsock(sock);
+      return -1;
+    }
+    strlcpy(so.sock_un.sun_path, ip, sizeof(so.sock_un.sun_path));
     socklen = SUN_LEN(&so.sock_un);
   }
 
@@ -749,10 +754,15 @@ int open_address_listen(const char* ip, in_port_t *port) {
     else
       debug3("Opening listen socket on %s:%d with AF_INET, sock: %d", ip, *port, sock);
 
-    bzero((char *) &name, sizeof(struct sockaddr *));
+    bzero((char *) &name, sizeof(name));
     if (af_def == AF_UNIX) {
       name.sock_un.sun_family = AF_UNIX;
-      strcpy(name.sock_un.sun_path, ip);
+      if (strlen(ip) >= sizeof(name.sock_un.sun_path)) {
+        putlog(LOG_DEBUG, "*", "Unix socket path is too long: %s", ip);
+        killsock(sock);
+        return -1;
+      }
+      strlcpy(name.sock_un.sun_path, ip, sizeof(name.sock_un.sun_path));
       unlink(name.sock_un.sun_path);
       addrlen = SUN_LEN(&name.sock_un);
     } else {
@@ -905,8 +915,12 @@ int answer(int sock, char *caller, in_addr_t *ip, in_port_t *port, int binary)
         socklen_t socklen = sizeof(sock_un);
 
         bzero(&sock_un, socklen);
-        getsockname(sock, (struct sockaddr*) &sock_un, &socklen);
-        strcpy(caller, sock_un.sun_path);
+        if (getsockname(sock, (struct sockaddr*) &sock_un, &socklen) < 0) {
+          putlog(LOG_DEBUG, "*", "Failed to getsockname on socket %d: %s", sock, strerror(errno));
+          killsock(new_sock);
+          return -1;
+        }
+        strlcpy(caller, sock_un.sun_path, UHOSTLEN);
         *port = 0;
       } else {
         *ip = from.sin_addr.s_addr;

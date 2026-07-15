@@ -2042,7 +2042,10 @@ dcc_ident(int idx, char *buf, int len)
 {
   char ident_response[512] = "", uid[512] = "", buf1[UHOSTLEN] = "";
 
-  sscanf(buf, "%*[^:]:%[^:]:%*[^:]:%[^\n]\n", ident_response, uid);
+  if (sscanf(buf, "%*[^:]:%511[^:]:%*[^:]:%511[^\n]\n", ident_response, uid) != 2) {
+    dcc[idx].timeval = now;
+    return;
+  }
   rmspace(ident_response);
   if (ident_response[0] != 'U') {
     dcc[idx].timeval = now;
