@@ -534,7 +534,8 @@ static void core_secondly()
 
   ++cnt;
 
-  if (((conf.bot->localhub || conf.bot->hub) && (cnt % 30) == 0) || (cnt % 5) == 0) {
+  const int autolink_interval = (conf.bot->localhub || conf.bot->hub) ? 30 : 5;
+  if (cnt >= autolink_interval) {
     autolink_cycle();         /* attempt autolinks */
     cnt = 0;
   }
