@@ -123,8 +123,11 @@ static void calc_penalty(char *, size_t);
 static bool fast_deq(int);
 static char *splitnicks(char **);
 static void msgq_clear(struct msgq_head *qh);
+static void schedule_server_queue();
+static int run_server_queue(void *);
 static int stack_limit = 4;
 static bool replaying_cache = 0;
+static int server_queue_timer = -1;
 
 /* New bind tables. */
 static bind_table_t *BT_raw = NULL, *BT_msg = NULL;
@@ -164,6 +167,25 @@ static const struct {
 #define Q_HELP 2
 #define Q_PLAY 3
 #define Q_CACHE 4
+
+static bool server_queue_pending()
+{
+  for (size_t i = 0; i < (sizeof(qdsc) / sizeof(qdsc[0])) - 1; ++i)
+    if (qdsc[i].q->head)
+      return 1;
+
+  return 0;
+}
+
+static void schedule_server_queue()
+{
+  if (server_queue_timer != -1 || !server_queue_pending())
+    return;
+
+  egg_timeval_t howlong = { 0, DEQ_RATE * 1000 };
+  server_queue_timer = timer_create_complex(&howlong, "server_queue",
+      (Function) run_server_queue, NULL, 0);
+}
 
 #include "cmdsserv.cc"
 
@@ -363,6 +385,14 @@ void deq_msg()
     sdprintf("BURSTING!!!!!\n");
 #endif
 
+}
+
+static int run_server_queue(void *)
+{
+  server_queue_timer = -1;
+  deq_msg();
+  schedule_server_queue();
+  return 0;
 }
 
 static void calc_penalty(char * msg, size_t len)
@@ -739,6 +769,7 @@ void queue_server(int which, char *buf, int len)
 
   /* Try flushing immediately */
   deq_msg();
+  schedule_server_queue();
 }
 
 /* Add a new server to the server_list.
@@ -1224,12 +1255,6 @@ void server_init()
   add_builtins("dcc", C_dcc_serv);
   add_builtins("ctcp", my_ctcps);
 
-  egg_timeval_t howlong;
-
-  howlong.sec = 0;
-  howlong.usec = DEQ_RATE * 1000;
-
-  timer_create_repeater(&howlong, "server_queue", (Function) deq_msg);
   timer_create_secs(1, "server_secondly", (Function) server_secondly);
   timer_create_secs(30, "server_check_lag", (Function) server_check_lag);
   timer_create_secs(60, "server_minutely", (Function) server_minutely);
