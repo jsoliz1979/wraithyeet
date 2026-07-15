@@ -1311,7 +1311,7 @@ void tell_dnsdebug(int idx)
 
 static void expire_queries()
 {
-	dns_query_t *q = NULL, *next = NULL;
+	dns_query_t *q = NULL;
 	int i = 0;
 
 	/* need to check for expired queries and either:
@@ -1319,17 +1319,20 @@ static void expire_queries()
 	   b) expire due to ttl
 	   */
 
-	if (query_head) {
+	for (;;) {
+		int expired_id = -1;
+
 		for (q = query_head; q; q = q->next) {
-			if (q->expiretime <= now) {		/* set in alloc_query */
-				if (q->next)
-					next = q->next;
-				egg_dns_cancel(q->id, 1);
-				if (!next)
-					break;
-				q = next;
+			if (q->expiretime <= now) {        /* set in alloc_query */
+				expired_id = q->id;
+				break;
 			}
 		}
+		if (expired_id == -1)
+			break;
+
+		/* The callback may mutate query_head, so restart after cancellation. */
+		egg_dns_cancel(expired_id, 1);
 	}
 
 	for (i = 0; i < ncache; i++) {
