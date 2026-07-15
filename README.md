@@ -1,6 +1,6 @@
 # Wraith
 
-[![Build Status](https://travis-ci.org/wraith/wraith.png?branch=master)](https://travis-ci.org/wraith/wraith)
+[![Build](https://github.com/jsoliz1979/wraithyeet/actions/workflows/build.yml/badge.svg)](https://github.com/jsoliz1979/wraithyeet/actions/workflows/build.yml)
 
 * https://github.com/wraith/wraith/wiki
 * http://github.com/wraith/wraith
@@ -28,6 +28,27 @@ Download: https://github.com/wraith/wraith/wiki/Download
 Git: git://github.com/wraith/wraith.git
 
 See git for a list of Contributors: git shortlog -sen master
+
+## Building
+
+This fork builds on Linux through GitHub Actions. The workflow checks out
+submodules recursively, installs the required system libraries, builds with GCC
+and Clang, and uploads the resulting `wraith` binary as a workflow artifact.
+
+Native Windows checkouts cannot fully initialize the `lib/bdlib` submodule
+because that dependency contains a path segment named `aux`, which Windows
+reserves as a device name. Use Linux, a Linux container, or a working WSL2
+environment for local builds.
+
+For a local Linux build:
+
+```sh
+git submodule update --init --recursive
+sudo apt-get install build-essential clang libelf-dev libssl-dev tcl-dev
+./configure
+make -j"$(nproc)" V=1
+make test V=1
+```
 
 Support:
 * How To Contribute: http://github.com/wraith/wraith/blob/master/CONTRIBUTING.md

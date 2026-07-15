@@ -1,0 +1,80 @@
+name: Build
+
+on:
+  push:
+    branches:
+      - master
+      - maint
+      - next
+  pull_request:
+    branches:
+      - master
+      - maint
+      - next
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    name: Linux ${{ matrix.compiler }}
+    runs-on: ubuntu-24.04
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - compiler: gcc
+            cc: gcc
+            cxx: g++
+          - compiler: clang
+            cc: clang
+            cxx: clang++
+
+    env:
+      CC: ${{ matrix.cc }}
+      CXX: ${{ matrix.cxx }}
+      CPPFLAGS: -D_FORTIFY_SOURCE=3
+      HARDENING_CFLAGS: -O2 -fstack-protector-strong -fPIE
+      CFLAGS: -O2 -fstack-protector-strong -fPIE
+      CXXFLAGS: -O2 -fstack-protector-strong -fPIE -D_GLIBCXX_ASSERTIONS
+      LDFLAGS: -Wl,-z,relro -Wl,-z,now -pie
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends \
+            build-essential \
+            clang \
+            libelf-dev \
+            libssl-dev \
+            tcl-dev
+
+      - name: Configure
+        run: ./configure
+
+      - name: Build
+        run: make -j"$(nproc)" V=1 CFLGS="$HARDENING_CFLAGS"
+
+      - name: Run test target
+        run: make -j"$(nproc)" test V=1 CFLGS="$HARDENING_CFLAGS"
+
+      - name: Inspect binary
+        run: |
+          test -x ./wraith
+          file ./wraith
+          ldd ./wraith
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wraith-${{ matrix.compiler }}-${{ github.sha }}
+          path: ./wraith
+          if-no-files-found: error
