@@ -172,7 +172,7 @@ static int get_dns_idx();
 static int cache_find(const char *) __attribute__((pure));
 //static int dns_on_read(void *client_data, int idx, char *buf, int len);
 //static int dns_on_eof(void *client_data, int idx, int err, const char *errmsg);
-static void dns_read(int idx, char*, int&, bool blocking = 0);
+static bool dns_read(int idx, char*, int&);
 static void dns_on_read(int idx, char *buf, int atr);
 static void dns_on_eof(int idx);
 static const char *dns_next_server();
@@ -576,8 +576,7 @@ bd::Array<bd::String> dns_send_blocking(dns_query_t* q, interval_t timeout, int 
 read_more:
 		alarm(timeout);
 
-		dns_read(dns_idx, buf, atr, 1);
-		read_error = errno ? 1 : 0;
+		read_error = !dns_read(dns_idx, buf, atr);
 
 		alarm(0);
 
@@ -757,27 +756,25 @@ int egg_dns_reverse(const char *ip, interval_t timeout, dns_callback_t callback,
 	return(q->id);
 }
 
-static void dns_read(int idx, char* buf, int& atr, bool blocking) {
-	atr = read(dcc[idx].sock, buf, 512);
+static bool dns_read(int idx, char* buf, int& atr) {
+	do {
+		atr = read(dcc[idx].sock, buf, 512);
+	} while (atr == -1 && errno == EINTR);
 
 	if (atr == -1) {
-		if (errno == EAGAIN) {
-			do {
-				atr = read(dcc[idx].sock, buf, 512);
-			} while (errno == EAGAIN && blocking);
-		}
-		if (atr == -1) {
-			dns_on_eof(idx);
-			errno = EPIPE;
-			return;
-		}
+		if (errno == EAGAIN || errno == EWOULDBLOCK)
+			return 0;
+
+		dns_on_eof(idx);
+		errno = EPIPE;
+		return 0;
 	}
 #ifdef DEBUG
 	sdprintf("SETTING TIMEOUT to 0: Received reply.");
 #endif
 	dns_handler.timeout_val = 0;
 	errno = 0;
-	return;
+	return 1;
 }
 
 static void dns_on_read(int idx, char* buf, int atr)
@@ -790,7 +787,8 @@ static void dns_on_read(int idx, char* buf, int atr)
 //		return;
 //	}
 
-	dns_read(idx, buf, atr);
+	if (!dns_read(idx, buf, atr))
+		return;
 	if (parse_reply(buf, atr, dns_ip))
 		dns_on_eof(idx);
 	return;
