@@ -21,8 +21,14 @@ AES_KEY e_key, d_key;
 bd::String encrypt_string(const bd::String& key, const bd::String& data) {
   if (!key) return data;
   size_t len = data.length();
+  const size_t max_encrypted_len = data.length() + CRYPT_BLOCKSIZE;
   char *bdata = (char*) aes_encrypt_ecb_binary(key.c_str(), (unsigned char*) data.c_str(), &len);
   if (!bdata) return bd::String();
+  if (max_encrypted_len < data.length() || len > max_encrypted_len) {
+    OPENSSL_cleanse(bdata, data.length());
+    free(bdata);
+    return bd::String();
+  }
   bd::String encrypted(bdata, len);
   free(bdata);
   return encrypted;
@@ -63,6 +69,11 @@ bd::String decrypt_string(const bd::String& key, const bd::String& data) {
   size_t len = data.length();
   char *bdata = (char*) aes_decrypt_ecb_binary(key.c_str(), (unsigned char*) data.c_str(), &len);
   if (!bdata) return bd::String();
+  if (len > data.length()) {
+    OPENSSL_cleanse(bdata, data.length());
+    free(bdata);
+    return bd::String();
+  }
   bd::String decrypted(bdata, len);
   OPENSSL_cleanse(bdata, len);
   free(bdata);
@@ -106,12 +117,13 @@ aes_encrypt_ecb_binary(const char *keydata, unsigned char *in, size_t *inlen)
     len += (CRYPT_BLOCKSIZE - (len % CRYPT_BLOCKSIZE));
 
   out = (unsigned char *) calloc(1, len + 1);
+  if (!out)
+    return NULL;
   memcpy(out, in, *inlen);
   *inlen = len;
 
   if (!keydata || !*keydata) {
     /* No key, no encryption */
-    memcpy(out, in, len);
   } else {
     char key[CRYPT_KEYSIZE + 1] = "";
 
@@ -136,6 +148,8 @@ aes_decrypt_ecb_binary(const char *keydata, unsigned char *in, size_t *len)
 
   *len -= *len % CRYPT_BLOCKSIZE;
   out = (unsigned char *) calloc(1, *len + 1);
+  if (!out)
+    return NULL;
   memcpy(out, in, *len);
 
   if (!keydata || !*keydata) {
@@ -173,13 +187,14 @@ aes_encrypt_cbc_binary(const char *keydata, unsigned char *in, size_t *inlen, un
   len += padding;
 
   out = (unsigned char *) calloc(1, len);
+  if (!out)
+    return NULL;
   memset(out + *inlen, padding, padding);
   memcpy(out, in, *inlen);
   *inlen = len;
 
   if (!keydata || !*keydata) {
     /* No key, no encryption */
-    memcpy(out, in, len);
   } else {
     char key[CRYPT_KEYSIZE + 1] = "";
 
@@ -199,6 +214,8 @@ aes_decrypt_cbc_binary(const char *keydata, unsigned char *in, size_t *len, unsi
 
   *len -= *len % CRYPT_BLOCKSIZE;
   out = (unsigned char *) calloc(1, *len + 1);
+  if (!out)
+    return NULL;
   memcpy(out, in, *len);
 
   if (!keydata || !*keydata) {

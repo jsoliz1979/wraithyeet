@@ -539,7 +539,8 @@ int egg_dns_lookup(const char *host, interval_t timeout, dns_callback_t callback
 	if (cache_id >= 0) {
 //		cache[cache_id].answer->shuffle();
 		const bd::String cached_answer(cache[cache_id].answer->join(','));
-		sdprintf("egg_dns_lookup(%s, %d): Found in cache -> %s", host, timeout, cached_answer.c_str() ? cached_answer.c_str() : "");
+		const char *cached_answer_str = cached_answer.c_str();
+		sdprintf("egg_dns_lookup(%s, %d): Found in cache -> %s", host, timeout, cached_answer_str);
 		callback(-1, client_data, host, *(cache[cache_id].answer));
 		return(-1);
 	}
@@ -664,7 +665,8 @@ bd::Array<bd::String> dns_lookup_block(const char *host, interval_t timeout, int
 	if (cache_id >= 0) {
 //		cache[cache_id].answer->shuffle();
 		const bd::String cached_answer(cache[cache_id].answer->join(','));
-		sdprintf("dns_lookup_block(%s, %d): Found in cache -> %s", host, timeout, cached_answer.c_str() ? cached_answer.c_str() : "");
+		const char *cached_answer_str = cached_answer.c_str();
+		sdprintf("dns_lookup_block(%s, %d): Found in cache -> %s", host, timeout, cached_answer_str);
 		return *(cache[cache_id].answer);
 	}
 
@@ -698,7 +700,8 @@ bd::Array<bd::String> dns_reverse_block(const char *ip, interval_t timeout)
 	if (cache_id >= 0) {
 //		cache[cache_id].answer->shuffle();
 		const bd::String cached_answer(cache[cache_id].answer->join(','));
-		sdprintf("dns_reverse_block(%s, %d): Found in cache -> %s", ip, timeout, cached_answer.c_str() ? cached_answer.c_str() : "");
+		const char *cached_answer_str = cached_answer.c_str();
+		sdprintf("dns_reverse_block(%s, %d): Found in cache -> %s", ip, timeout, cached_answer_str);
 		return *(cache[cache_id].answer);
 	}
 
@@ -736,7 +739,8 @@ int egg_dns_reverse(const char *ip, interval_t timeout, dns_callback_t callback,
 	if (cache_id >= 0) {
 //		cache[cache_id].answer->shuffle();
 		const bd::String cached_answer(cache[cache_id].answer->join(','));
-		sdprintf("egg_dns_reverse(%s, %d): Found in cache -> %s", ip, timeout, cached_answer.c_str() ? cached_answer.c_str() : "");
+		const char *cached_answer_str = cached_answer.c_str();
+		sdprintf("egg_dns_reverse(%s, %d): Found in cache -> %s", ip, timeout, cached_answer_str);
 		callback(-1, client_data, ip, *(cache[cache_id].answer));
 		return(-1);
 	}

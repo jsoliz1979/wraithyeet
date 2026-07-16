@@ -519,7 +519,8 @@ void writecfg() {
       ownerInfo[1] = bd::String(salted_sha1(ownerInfo.at(1).c_str()));
     }
     const bd::String ownerConfig(ownerInfo.join(" "));
-    printf("OWNER %s\n", ownerConfig.c_str() ? ownerConfig.c_str() : "");
+    const char *ownerConfigStr = ownerConfig.c_str();
+    printf("OWNER %s\n", ownerConfigStr);
   }
   for (auto hubLine : conf.hubs) {
     auto hubInfo = hubLine.split(' ');
@@ -528,7 +529,8 @@ void writecfg() {
       hubInfo.resize(3);
     }
     const bd::String hubConfig(hubInfo.join(" "));
-    printf("HUB %s\n", hubConfig.c_str() ? hubConfig.c_str() : "");
+    const char *hubConfigStr = hubConfig.c_str();
+    printf("HUB %s\n", hubConfigStr);
   }
   printf("SALT1 %s\n", salt1);
   printf("SALT2 %s\n", salt2);
