@@ -268,35 +268,20 @@ add_delay(struct chanset_t *chan, int plsmns, int mode, char *mask)
 }
 
 static void
-del_delay(struct delay_mode *delay)
-{
-  struct delay_mode *old = NULL;
-
-  for (struct delay_mode *d = start_delay; d; old = d, d = d->next) {
-    if (d == delay) {
-      if (old)
-        old->next = d->next;
-      else
-        start_delay = d->next;
-      if (d->mask)
-        free(d->mask);
-      free(d);
-      break;
-    }
-  }
-}
-
-static void
 check_delay()
 {
-  struct delay_mode *dnext = NULL;
+  struct delay_mode **next = &start_delay;
 
-  for (struct delay_mode *d = start_delay; d; d = dnext) {
-    dnext = d->next;
+  while (*next) {
+    struct delay_mode *d = *next;
+
     if (d->seconds <= now) {
       add_mode(d->chan, d->plsmns, d->mode, d->mask);
-      del_delay(d);
-    }
+      *next = d->next;
+      free(d->mask);
+      free(d);
+    } else
+      next = &d->next;
   }
 }
 
