@@ -1152,7 +1152,8 @@ int cmd_set_real(const char *botnick, int idx, char *par)
               data_word = strldup(data, p - data);
           } else
             data_word = (char*)data;
-          dprintf(idx, "Item '%s' is already in the %s list.\n", data_word, var->name);
+          dprintf(idx, "Item '%s' is already in the %s list.\n",
+                  data_word ? data_word : "", var->name ? var->name : "");
           if (p)
             free(data_word);
           return 0;

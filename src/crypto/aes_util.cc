@@ -22,6 +22,7 @@ bd::String encrypt_string(const bd::String& key, const bd::String& data) {
   if (!key) return data;
   size_t len = data.length();
   char *bdata = (char*) aes_encrypt_ecb_binary(key.c_str(), (unsigned char*) data.c_str(), &len);
+  if (!bdata) return bd::String();
   bd::String encrypted(bdata, len);
   free(bdata);
   return encrypted;
@@ -61,6 +62,7 @@ bd::String decrypt_string(const bd::String& key, const bd::String& data) {
   if (!key) return data;
   size_t len = data.length();
   char *bdata = (char*) aes_decrypt_ecb_binary(key.c_str(), (unsigned char*) data.c_str(), &len);
+  if (!bdata) return bd::String();
   bd::String decrypted(bdata, len);
   OPENSSL_cleanse(bdata, len);
   free(bdata);

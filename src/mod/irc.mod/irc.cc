@@ -1279,7 +1279,7 @@ static void get_channel_masks(struct chanset_t* chan) {
   }
 
   if (tocheck.length())
-    dprintf(DP_MODE, "MODE %s %s\n", chan->name, tocheck.c_str());
+    dprintf(DP_MODE, "MODE %s %s\n", chan->name, tocheck.c_str() ? tocheck.c_str() : "");
 }
 
 /* Reset the channel information.

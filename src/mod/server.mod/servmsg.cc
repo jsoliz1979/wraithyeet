@@ -158,17 +158,17 @@ static int check_bind_raw(char *from, char *code, char *msg)
   myfrom = p1 = strdup(from);
 
   // Decrypt FiSH before processing
-  if (!strcmp(code, "PRIVMSG") || !strcmp(code, "NOTICE")) {
+  if (msg && (!strcmp(code, "PRIVMSG") || !strcmp(code, "NOTICE"))) {
     char* colon = strchr(msg, ':'), *first_word = strchr(msg, ' ');
-    bd::String target(msg, first_word - msg);
 
-    ++colon;
-    if (colon) {
+    if (colon && first_word && first_word < colon) {
+      bd::String target(msg, first_word - msg);
+      ++colon;
       if (!strncmp(colon, "+OK ", 4)) {
         bool isValidCipherText;
         char *p = strchr(from, '!');
         const bool target_is_chan = strchr(CHANMETA, target[0]);
-        bd::String ciphertext(colon), sharedKey, nick(from, p - from), key_target;
+        bd::String ciphertext(colon), sharedKey, nick(from, p ? p - from : strlen(from)), key_target;
 
         // If this is a channel msg, decrypt with the channel key
         if (target_is_chan) {

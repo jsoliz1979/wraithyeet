@@ -518,7 +518,8 @@ void writecfg() {
     if (ownerPassLength != 40 && ownerPassLength != 47) {
       ownerInfo[1] = bd::String(salted_sha1(ownerInfo.at(1).c_str()));
     }
-    printf("OWNER %s\n", ownerInfo.join(" ").c_str());
+    const bd::String ownerConfig(ownerInfo.join(" "));
+    printf("OWNER %s\n", ownerConfig.c_str() ? ownerConfig.c_str() : "");
   }
   for (auto hubLine : conf.hubs) {
     auto hubInfo = hubLine.split(' ');
@@ -526,7 +527,8 @@ void writecfg() {
     if (hubInfo.length() == 4) {
       hubInfo.resize(3);
     }
-    printf("HUB %s\n", hubInfo.join(" ").c_str());
+    const bd::String hubConfig(hubInfo.join(" "));
+    printf("HUB %s\n", hubConfig.c_str() ? hubConfig.c_str() : "");
   }
   printf("SALT1 %s\n", salt1);
   printf("SALT2 %s\n", salt2);
