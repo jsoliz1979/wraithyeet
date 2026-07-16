@@ -70,6 +70,7 @@ struct delay_mode {
 };
 
 static struct delay_mode *start_delay = NULL;
+static int delay_timer = -1;
 
 /* Prototypes */
 static void start_sending_users(int);
@@ -250,6 +251,19 @@ void dump_resync(int idx)
  *   Sup's delay code
  */
 
+static int check_delay(void *);
+
+static void
+schedule_delay_check()
+{
+  if (delay_timer != -1 || !start_delay)
+    return;
+
+  egg_timeval_t howlong = { 1, 0 };
+  delay_timer = timer_create_complex(&howlong, "check_delay",
+      (Function) check_delay, NULL, 0);
+}
+
 static void
 add_delay(struct chanset_t *chan, int plsmns, int mode, char *mask)
 {
@@ -265,12 +279,15 @@ add_delay(struct chanset_t *chan, int plsmns, int mode, char *mask)
   d->seconds = (int) (now + randint(20));
   d->next = start_delay;
   start_delay = d;
+  schedule_delay_check();
 }
 
-static void
-check_delay()
+static int
+check_delay(void *)
 {
   struct delay_mode **next = &start_delay;
+
+  delay_timer = -1;
 
   while (*next) {
     struct delay_mode *d = *next;
@@ -283,6 +300,9 @@ check_delay()
     } else
       next = &d->next;
   }
+
+  schedule_delay_check();
+  return 0;
 }
 
 /*
@@ -1688,8 +1708,6 @@ share_init()
 {
   if (conf.bot->hub)
     timer_create_secs(60, "check_expired_tbufs", (Function) check_expired_tbufs);
-  else
-    timer_create_secs(1, "check_delay", (Function) check_delay);
   def_dcc_bot_kill = DCC_BOT.kill;
   DCC_BOT.kill = cancel_user_xfer;
 }
