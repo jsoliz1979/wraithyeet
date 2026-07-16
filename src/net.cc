@@ -1212,6 +1212,10 @@ int sockgets(char *s, int *len)
           *(socklist[i].inbuf) += newline_index + 1;
           if (was_crlf)
            *(socklist[i].inbuf) += static_cast<size_t>(1);
+          if (!socklist[i].inbuf->length()) {
+            delete socklist[i].inbuf;
+            socklist[i].inbuf = NULL;
+          }
 
           if (s[0] && socklist[i].encstatus)
             link_read(i, s);
