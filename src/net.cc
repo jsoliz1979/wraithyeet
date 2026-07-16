@@ -74,7 +74,9 @@ int	socks_total = 0;	/* total number of sockets */
 sock_list *socklist = NULL;	/* Enough to be safe			    */
 int	MAXSOCKS = 0;
 static int socklist_highest = 0;
+static int inbuf_sockets = 0;
 static int outbuf_sockets = 0;
+static int eofd_sockets = 0;
 jmp_buf	alarmret;		/* Env buffer for alarm() returns	    */
 
 /* This *MUST* be an ip */
@@ -152,6 +154,7 @@ void init_net()
     socklist = (sock_list *) calloc(1, sizeof(sock_list) * MAXSOCKS);
 
   socklist_highest = 0;
+  inbuf_sockets = outbuf_sockets = eofd_sockets = 0;
   for (int i = 0; i < MAXSOCKS; i++) {
     bzero(&socklist[i], sizeof(socklist[i]));
     socklist[i].flags = SOCK_UNUSED;
@@ -342,6 +345,8 @@ int allocsock(int sock, int options)
       bzero(&(socklist[i].okey), ENC_KEY_LEN + 1);
       bzero(&(socklist[i].ikey), ENC_KEY_LEN + 1);
       socks_total++;
+      if (options & SOCK_EOFD)
+        ++eofd_sockets;
       if (i >= socklist_highest)
         socklist_highest = i + 1;
       sdprintf("allocsock(%d) = %d", i, sock);
@@ -420,6 +425,7 @@ void real_killsock(int sock, const char *file, int line)
     if (socklist[i].inbuf != NULL) {
       delete socklist[i].inbuf;
       socklist[i].inbuf = NULL;
+      --inbuf_sockets;
     }
     if (socklist[i].outbuf != NULL) {
       delete socklist[i].outbuf;
@@ -428,6 +434,8 @@ void real_killsock(int sock, const char *file, int line)
     }
     if (socklist[i].host)
       free(socklist[i].host);
+    if (socklist[i].flags & SOCK_EOFD)
+      --eofd_sockets;
     bzero(&socklist[i], sizeof(socklist[i]));
     socklist[i].flags = SOCK_UNUSED;
     socks_total--;
@@ -1194,7 +1202,8 @@ int sockgets(char *s, int *len)
   size_t newline_index = size_t(-1);
   bool was_crlf = 0;
 
-  for (int i = 0; i < socklist_highest; i++) {
+  if (inbuf_sockets || eofd_sockets)
+    for (int i = 0; i < socklist_highest; i++) {
     /* Check for stored-up data waiting to be processed */
     if (!(socklist[i].flags & SOCK_UNUSED) && !(socklist[i].flags & SOCK_BUFFER) && (socklist[i].inbuf != NULL)) {
       if (!(socklist[i].flags & SOCK_BINARY)) {
@@ -1215,6 +1224,7 @@ int sockgets(char *s, int *len)
           if (!socklist[i].inbuf->length()) {
             delete socklist[i].inbuf;
             socklist[i].inbuf = NULL;
+            --inbuf_sockets;
           }
 
           if (s[0] && socklist[i].encstatus)
@@ -1225,8 +1235,6 @@ int sockgets(char *s, int *len)
 	  return socklist[i].sock;
 	}
       } else {
-        if (!socklist[i].inbuf)
-          socklist[i].inbuf = new bd::String();
         /* i dont think any of this is *ever* called */
 	/* Handling buffered binary data (must have been SOCK_BUFFER before). */
 	if (socklist[i].inbuf->length() <= SGRAB) {
@@ -1234,6 +1242,7 @@ int sockgets(char *s, int *len)
 	  memcpy(s, socklist[i].inbuf->data(), socklist[i].inbuf->length());
 	  delete socklist[i].inbuf;
           socklist[i].inbuf = NULL;
+	  --inbuf_sockets;
 	} else {
 	  /* Split up into chunks of SGRAB bytes. */
 	  *len = SGRAB;
@@ -1264,6 +1273,7 @@ int sockgets(char *s, int *len)
       socklist[ret].flags &= ~SOCK_STRONGCONN;
       /* Buffer any data that came in, for future read. */
       socklist[ret].inbuf = new bd::String(xx, *len);
+      ++inbuf_sockets;
     }
     socklist[ret].flags &= ~SOCK_CONNECT;
     s[0] = 0;
@@ -1276,9 +1286,10 @@ int sockgets(char *s, int *len)
   if ((socklist[ret].flags & SOCK_LISTEN) || (socklist[ret].flags & SOCK_PASS))
     return socklist[ret].sock;
   if (socklist[ret].flags & SOCK_BUFFER) {
-    if (!socklist[ret].inbuf)
+    if (!socklist[ret].inbuf) {
       socklist[ret].inbuf = new bd::String(xx, *len);
-    else
+      ++inbuf_sockets;
+    } else
       *(socklist[ret].inbuf) += bd::String(xx, *len);
     return -4;			/* Ignore this one. */
   }
@@ -1289,6 +1300,7 @@ int sockgets(char *s, int *len)
       strlcpy(xx, socklist[ret].inbuf->c_str(), sizeof(xx));
       delete socklist[ret].inbuf;
       socklist[ret].inbuf = NULL;
+      --inbuf_sockets;
     } else {
       // Take out an SGRAB sized chunk and advance the buffer
       strlcpy(xx, socklist[ret].inbuf->c_str(), SGRAB + 1);
@@ -1341,6 +1353,7 @@ int sockgets(char *s, int *len)
     socklist[ret].inbuf->insert(0, xx);
   } else {
     socklist[ret].inbuf = new bd::String(xx);
+    ++inbuf_sockets;
   }
   if (data) {
     return socklist[ret].sock;
@@ -1556,7 +1569,10 @@ void dequeue_sockets()
 	) {
 	/* This detects an EOF during writing */
 	debug3("net: eof!(write) socket %d (%s,%d)", socklist[i].sock, strerror(errno), errno);
-	socklist[i].flags |= SOCK_EOFD;
+	if (!(socklist[i].flags & SOCK_EOFD)) {
+	  socklist[i].flags |= SOCK_EOFD;
+	  ++eofd_sockets;
+	}
       } else if ((size_t) x == socklist[i].outbuf->length()) {
 	/* If the whole buffer was sent, nuke it */
 	delete socklist[i].outbuf;
