@@ -732,6 +732,13 @@ int open_address_listen(const char* ip, in_port_t *port) {
     if (sock < 0)
       return -1;
 
+#ifdef IPV6_V6ONLY
+    {
+      int v6only = 1;
+      setsockopt(sock, IPPROTO_IPV6, IPV6_V6ONLY, (void *) &v6only, sizeof(v6only));
+    }
+#endif
+
     debug2("Opening listen socket on port %d with AF_INET6, sock: %d", *port, sock);
     bzero((char *) &name6, sizeof(name6));
     name6.sin6_family = af_def;
