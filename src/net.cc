@@ -77,6 +77,7 @@ static int socklist_highest = 0;
 static int inbuf_sockets = 0;
 static int outbuf_sockets = 0;
 static int eofd_sockets = 0;
+static int listen_errno = 0;
 jmp_buf	alarmret;		/* Env buffer for alarm() returns	    */
 
 /* This *MUST* be an ip */
@@ -155,6 +156,7 @@ void init_net()
 
   socklist_highest = 0;
   inbuf_sockets = outbuf_sockets = eofd_sockets = 0;
+  listen_errno = 0;
   for (int i = 0; i < MAXSOCKS; i++) {
     bzero(&socklist[i], sizeof(socklist[i]));
     socklist[i].flags = SOCK_UNUSED;
@@ -703,6 +705,11 @@ int open_telnet(const char *ip, in_port_t port, bool proxy, int identd)
   return -1;
 }
 
+const char *last_listen_error(void)
+{
+  return listen_errno ? strerror(listen_errno) : "unknown error";
+}
+
 /* Returns a socket number for a listening socket that will accept any
  * connection on a certain address -- port # is returned in port
  *
@@ -720,6 +727,7 @@ int open_address_listen(const char* ip, in_port_t *port) {
 //    return -1;
 //  }
 
+  listen_errno = 0;
   int sock = 0;
   socklen_t addrlen;
   union sockaddr_union name;
@@ -746,6 +754,7 @@ int open_address_listen(const char* ip, in_port_t *port) {
     /* memcpy(&name6.sin6_addr, &in6addr_any, 16); */ /* this is the only way to get ipv6+ipv4 in 1 socket */
     memcpy(&name6.sin6_addr, &cached_myip6_so.sin6.sin6_addr, 16);
     if (bind(sock, (struct sockaddr *) &name6, sizeof(name6)) < 0) {
+      listen_errno = errno;
       if (!(identd_hack && *port == 113))
         putlog(LOG_DEBUG, "*", "Failed to bind to socket %d for listen on port %d: %s", sock, *port, strerror(errno));
       killsock(sock);
@@ -753,6 +762,7 @@ int open_address_listen(const char* ip, in_port_t *port) {
     }
     addrlen = sizeof(name6);
     if (getsockname(sock, (struct sockaddr *) &name6, &addrlen) < 0) {
+      listen_errno = errno;
       if (!(identd_hack && *port == 113))
         putlog(LOG_DEBUG, "*", "Failed to getsockname on socket %d for listen on port %d: %s", sock, *port, strerror(errno));
       killsock(sock);
@@ -760,6 +770,7 @@ int open_address_listen(const char* ip, in_port_t *port) {
     }
     *port = ntohs(name6.sin6_port);
     if (listen(sock, 1) < 0) {
+      listen_errno = errno;
       if (!(identd_hack && *port == 113))
         putlog(LOG_DEBUG, "*", "Failed to listen on socket %d for listen on port %d: %s", sock, *port, strerror(errno));
       killsock(sock);
@@ -798,6 +809,7 @@ int open_address_listen(const char* ip, in_port_t *port) {
     }
 
     if (bind(sock, (struct sockaddr *) &name, addrlen) < 0) {
+      listen_errno = errno;
       if (!(identd_hack && *port == 113)) {
         if (af_def == AF_UNIX)
           putlog(LOG_DEBUG, "*", "Failed to bind to socket %d for listen on %s: %s", sock, ip, strerror(errno));
@@ -811,6 +823,7 @@ int open_address_listen(const char* ip, in_port_t *port) {
     if (af_def != AF_UNIX) {
       /* what port are we on? */
       if (getsockname(sock, (struct sockaddr *) &name, &addrlen) < 0) {
+        listen_errno = errno;
         if (!(identd_hack && *port == 113))
           putlog(LOG_DEBUG, "*", "Failed to getsockname on socket %d for listen on port %d: %s", sock, *port, strerror(errno));
         killsock(sock);
@@ -820,6 +833,7 @@ int open_address_listen(const char* ip, in_port_t *port) {
     }
 
     if (listen(sock, 1) < 0) {
+      listen_errno = errno;
       if (!(identd_hack && *port == 113) && af_def != AF_UNIX)
         putlog(LOG_DEBUG, "*", "Failed to listen on socket %d for on port %d: %s", sock, *port, strerror(errno));
       killsock(sock);

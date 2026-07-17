@@ -129,6 +129,7 @@ int open_address_listen(const char*, int, in_port_t *);
 #else
 int open_address_listen(const char*, in_port_t *);
 #endif /* USE_IPV6 */
+const char *last_listen_error(void);
 int open_telnet(const char *, in_port_t, bool proxy = 0, int identd = 0);
 int open_telnet_dcc(int, char *, char *);
 int open_telnet_raw(int, const char *, in_port_t, bool, int = 0);

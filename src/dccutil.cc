@@ -935,7 +935,7 @@ listen_all(in_port_t lport, bool off, bool should_v6)
 #ifdef USE_IPV6
         i6 = open_listen_by_af(&port, AF_INET6);
         if (i6 < 0) {
-          putlog(LOG_ERRORS, "*", "Can't open IPv6 listening port %d - %s", port, i6 == -1 ? "it's taken." : "couldn't assign ip.");
+          putlog(LOG_ERRORS, "*", "Can't open IPv6 listening port %d - %s", port, last_listen_error());
         } else {
           /* now setup ipv4/ipv6 listening port */
           idx = new_dcc(&DCC_TELNET, 0);
@@ -959,7 +959,7 @@ listen_all(in_port_t lport, bool off, bool should_v6)
 #endif /* USE_IPV6 */
 
       if (i < 0) {
-        putlog(LOG_ERRORS, "*", "Can't open IPv4 listening port %d - %s", port, i == -1 ? "it's taken." : "couldn't assign ip.");
+        putlog(LOG_ERRORS, "*", "Can't open IPv4 listening port %d - %s", port, last_listen_error());
       } else {
         idx = new_dcc(&DCC_TELNET, 0);
         dcc[idx].addr = iptolong(getmyip());
